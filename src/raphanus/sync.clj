@@ -1,0 +1,34 @@
+(ns raphanus.sync
+  (:require [raphanus.commands :as commands]
+            [raphanus.codec :as codec]
+            [raphanus.conn :as conn]
+            [raphanus.utils :as utils]
+            [clojure.core.async :as a])
+  (:refer-clojure :exclude [time sort sync set keys eval get type]))
+
+(defn sync!
+  [ch]
+  (let [v (a/<!! ch)]
+    (if (utils/throwable? v)
+      (throw v)
+      v)))
+
+(defn sync-send
+  [driver data]
+  (sync! (conn/send driver data)))
+
+(defn enqueue
+  [driver data return-f]
+  (return-f (sync-send driver data)))
+
+(defn connect
+  [host port & [options]]
+  (sync! (conn/mk host port options) options))
+
+(commands/defcommands enqueue)
+
+(comment
+  (def c (clojure.core.async/<!! (raphanus.conn/persistent "127.0.0.1" 6379)))
+
+  (def c (clojure.core.async/<!! (raphanus.conn/cluster [{:host "127.0.0.1" :port 30001}])))
+  )
