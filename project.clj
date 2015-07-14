@@ -15,5 +15,6 @@
                                   [org.slf4j/jcl-over-slf4j "1.7.7"]
                                   [com.stuartsierra/component "0.2.3"]
                                   [io.prometheus/simpleclient "0.0.10"]
-                                  [criterium "0.4.3"]]}})
+                                  [criterium "0.4.3"]]}}
+  :deploy-repositories [["releases" :clojars]])
 
