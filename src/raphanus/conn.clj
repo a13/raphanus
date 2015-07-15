@@ -179,7 +179,8 @@
                         _ (when asking (send conn [(.getBytes "ASKING")]))
                         res (a/<! (send conn (:data v)))
                         err? (ex-data res)]
-                    (if (or (= "MOVED" (:type err?)) (= "ASK" (:type err?)))
+                    (cond
+                      (or (= "MOVED" (:type err?)) (= "ASK" (:type err?)))
                       (let [[slot-str host-and-port] (str/split (:message err?) #" ")
                             [host port-str] (str/split host-and-port #":")
                             port (Integer. port-str)
@@ -195,6 +196,11 @@
                             (do (a/put! (:promise v)
                                         (ex-info "Can't connect" {:type ::cant-connect :host host :port port}))
                                 (recur slots connections nil nil)))))
+                      err?
+                      (do (a/put! (:promise v) (ex-info "Error in cluster" (assoc err? :conn conn) res))
+                          (recur slots connections nil nil))
+
+                      :else
                       (do (a/put! (:promise v) res)
                           (recur slots connections nil nil))))
                   (doseq [c (vals (connections))]

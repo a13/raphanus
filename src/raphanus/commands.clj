@@ -114,8 +114,7 @@
 (defmacro defcommands [enqueue-f]
   (let [refspec (command-specs)]
     `(do ~@(map (fn [v] `(defcommand ~enqueue-f ~v))
-                refspec)
-         (defn eval []))))
+                refspec))))
 
 (comment
   (require 'cheshire.core)

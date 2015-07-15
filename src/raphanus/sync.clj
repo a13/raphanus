@@ -2,7 +2,9 @@
   (:require [raphanus.commands :as commands]
             [raphanus.codec :as codec]
             [raphanus.conn :as conn]
+            [raphanus.core :as core]
             [raphanus.utils :as utils]
+            [raphanus.extra :as extra]
             [clojure.core.async :as a])
   (:refer-clojure :exclude [time sort sync set keys eval get type]))
 
@@ -25,7 +27,19 @@
   [host port & [options]]
   (sync! (conn/mk host port options) options))
 
+(defn persistent
+  [host port & [options]]
+  (sync! (conn/persistent host port options)))
+
+(defn cluster
+  [hosts & [options]]
+  (sync! (conn/cluster hosts options)))
+
 (commands/defcommands enqueue)
+
+(defmacro with-lock
+  [driver key options & body]
+  `(sync! (extra/with-lock ~driver ~key ~options ~@body)))
 
 (comment
   (def c (clojure.core.async/<!! (raphanus.conn/persistent "127.0.0.1" 6379)))

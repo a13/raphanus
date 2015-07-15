@@ -1,6 +1,6 @@
 (ns raphanus.core-test
   (:require [clojure.test :refer :all]
-            [raphanus.core :refer :all]))
+            [raphanus.core :as core]))
 
 (deftest a-test
   (testing "FIXME, I fail."

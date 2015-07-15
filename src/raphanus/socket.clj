@@ -57,7 +57,6 @@
         (write-loop (.channel ctx))
         (a/put! connect-ch {:in in :out out}))
       (channelInactive [this ctx]
-        (log/info "----INACTIVE")
         (close!))
       (channelRead [this ctx msg]
         (let [res (a/alt!!
@@ -79,7 +78,6 @@
         (.bind ctx local-address promise))
       (close [this ctx promise]
         (.close ctx promise)
-        (log/info "----CLOSED")
         ;; (log/error (Exception. "Can't connect") "Connection error")
         (a/close! connect-ch))
       (connect [this ctx remote-address local-address promise]

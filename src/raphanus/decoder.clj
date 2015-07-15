@@ -104,7 +104,6 @@
 
 (defn with-decoder
   [src]
-  (prn "---WITH DECODER" src)
   (let [dst (a/chan 20)]
     (a/go-loop [reader type-reader]
       (if-let [bb (a/<! src)]
