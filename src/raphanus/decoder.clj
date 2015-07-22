@@ -115,6 +115,5 @@
           (doseq [m msgs]
             (a/>! dst m))
           (recur reader'))
-        (do (clojure.tools.logging/info "----DECODER CLOSE" dst)
-            (a/close! dst))))
+        (a/close! dst)))
     dst))

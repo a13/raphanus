@@ -1,14 +1,17 @@
 (ns raphanus.component
   (:require [com.stuartsierra.component :as component]
-            [raphanus.conn :as conn]
+            [raphanus.sync :as redis]
             [clojure.core.async :as a]))
 
 (defrecord Component []
   component/Lifecycle
   (start [this]
-    (merge this (case (:type this)
-                  :cluster (conn/cluster (:hosts this) (:options this))
-                  (conn/persistent (:host this) (:port this) (:options this)))))
+    (let [redis (case (:type this)
+                  :cluster (redis/cluster (:hosts this) (:options this))
+                  (redis/persistent (:host this) (:port this) (:options this)))]
+      (when-not redis
+        (throw (Exception. (format "Can't connect to redis: %s" (pr-str this)))))
+      (merge this redis)))
   (stop [this]
     (a/close! (:requests this))))
 

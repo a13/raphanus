@@ -6,4 +6,4 @@
   [keyword-fn]
   (reify codec/Codec
    (encode [this v] (.getBytes (json/generate-string v)))
-   (decode [this v] (json/parse-string (String. v) keyword-fn))))
+   (decode [this v] (json/parse-string (String. ^bytes v) keyword-fn))))

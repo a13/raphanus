@@ -1,6 +1,7 @@
 (ns raphanus.sync-test
   (:require [raphanus.sync :as sync]
             [raphanus.conn :as conn]
+            [raphanus.codec.json :as json-codec]
             [clojure.core.async :as a]
             [clojure.test :refer :all]))
 
@@ -23,9 +24,14 @@
 
 (use-fixtures :each with-redis with-flush)
 
-;; (deftest basic
-;;   (is (= "OK" (sync/set *redis* "foo" "bar")))
-;;   (is (= "bar" (sync/get *redis* "foo"))))
+(deftest basic
+  (is (= "OK" (sync/set *redis* "foo" "bar")))
+  (is (= "bar" (sync/get *redis* "foo"))))
+
+(deftest json
+  (let [driver (assoc-in *redis* [:codecs :value] (json-codec/mk true))]
+    (is (= "OK" (sync/set driver "foo" {:name "Andrew"})))
+    (is (= {:name "Andrew"} (sync/get driver "foo")))))
 
 (deftest locks
   (sync/with-lock *redis* "test-lock" {:expire 5000}

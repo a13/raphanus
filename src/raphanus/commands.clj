@@ -98,7 +98,7 @@
        {:doc ~fn-docstring
         :redis-api (or (:since ~refspec) true)}
        ~all-args
-       (let [~codecs-sym (-> :codecs ~'driver)
+       (let [~codecs-sym (get ~'driver :codecs)
              request# ~req-args]
          (~enqueue-f ~'driver request# (result-f ~'driver ~cmd-name ~(:return (cmd-codec-keys cmd-name))
                                                  ~(vec (filter #(not= '& %) fn-args))))))))
