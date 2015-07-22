@@ -135,7 +135,9 @@
   (String. (case (String. (first command))
              ;; calculate slot based only on first key
              ("eval" "evalsha") (nth command 3)
-             (nth command 1))))
+             (if (< 1 (count command))
+               (nth command 1)
+               (first command)))))
 
 (defn key->slot
   [key]

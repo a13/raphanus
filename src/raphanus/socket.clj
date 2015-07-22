@@ -29,16 +29,19 @@
                                                       val
                                                       :closed))
                                        :default :empty)]
-                             (case res
-                               :closed (do (.flush ^Channel ch)
-                                           (.close ^Channel ch)
-                                           (close!))
-                               :empty (do (.flush ^Channel ch)
-                                          (if-let [v (a/<! out)]
-                                            (do (.write ^Channel ch v)
-                                                (recur))
-                                            (do (.close ^Channel ch)
-                                                (close!))))
+                             (cond
+                               (= :closed res)
+                               (do (.flush ^Channel ch)
+                                   (.close ^Channel ch)
+                                   (close!))
+                               (= :empty res)
+                               (do (.flush ^Channel ch)
+                                   (if-let [v (a/<! out)]
+                                     (do (.write ^Channel ch v)
+                                         (recur))
+                                     (do (.close ^Channel ch)
+                                         (close!))))
+                               :else
                                (do (.write ^Channel ch res)
                                    (recur))))
                            (do
