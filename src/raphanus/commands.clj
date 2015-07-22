@@ -107,7 +107,6 @@
 (defn command-specs
   []
   (-> (io/resource "raphanus/commands.edn")
-      io/file
       slurp
       edn/read-string))
 
