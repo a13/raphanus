@@ -205,7 +205,7 @@
                       :else
                       (do (a/put! (:promise v) res)
                           (recur slots connections nil nil))))
-                  (doseq [c (vals (connections))]
+                  (doseq [c (vals connections)]
                     (a/close! c))))
               {:requests requests
                :desc (format "Cluster connection to %s" (pr-str hosts))
