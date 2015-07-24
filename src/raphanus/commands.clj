@@ -78,7 +78,8 @@
     (fn [res]
       (when-let [tracer (:tracer driver)]
         (tracer/request-completed tracer cmd-name args res (- (System/nanoTime) start)))
-      (codec/decode return-codec res))))
+      (when-not (= :raphanus/null res)
+        (codec/decode return-codec res)))))
 
 (defmacro defcommand [enqueue-f {cmd-name :name args :arguments :as refspec}]
   (let [fn-name      (-> cmd-name (str/replace #" " "-") str/lower-case)

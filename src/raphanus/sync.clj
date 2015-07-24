@@ -1,8 +1,6 @@
 (ns raphanus.sync
   (:require [raphanus.commands :as commands]
-            [raphanus.codec :as codec]
             [raphanus.conn :as conn]
-            [raphanus.core :as core]
             [raphanus.utils :as utils]
             [raphanus.extra :as extra]
             [clojure.core.async :as a])

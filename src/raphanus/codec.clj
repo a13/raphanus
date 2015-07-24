@@ -12,7 +12,7 @@
 (def string
   (reify Codec
     (encode [this v] (.getBytes (str v)))
-    (decode [this v] (when-not (= :raphanus/null v) (String. ^bytes v)))))
+    (decode [this v] (String. ^bytes v))))
 
 (def multiple-string
   (reify Codec

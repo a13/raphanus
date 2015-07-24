@@ -30,6 +30,7 @@
 
 (deftest json
   (let [driver (assoc-in *redis* [:codecs :value] (json-codec/mk true))]
+    (is (nil? (sync/get driver "foo")))
     (is (= "OK" (sync/set driver "foo" {:name "Andrew"})))
     (is (= {:name "Andrew"} (sync/get driver "foo")))))
 

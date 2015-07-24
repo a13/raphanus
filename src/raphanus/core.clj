@@ -7,12 +7,12 @@
   (:refer-clojure :exclude [time sort sync set keys eval get type]))
 
 (defn enqueue
-  [driver data return-key]
+  [driver data return-f]
   (a/go
     (let [v (a/<! (conn/send driver data))]
       (if (utils/throwable? v)
         v
-        (codec/decode ((:codecs driver) return-key) v)))))
+        (return-f v)))))
 
 (commands/defcommands enqueue)
 
