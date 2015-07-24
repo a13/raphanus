@@ -206,7 +206,7 @@
                       (do (a/put! (:promise v) res)
                           (recur slots connections nil nil))))
                   (doseq [c (vals connections)]
-                    (a/close! c))))
+                    (a/close! {:requests c}))))
               {:requests requests
                :desc (format "Cluster connection to %s" (pr-str hosts))
                :codecs (merge codec/default-codecs-dict (:codecs options))}))))))
