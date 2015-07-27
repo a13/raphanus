@@ -41,7 +41,7 @@
         replies (pairs (:in conn) promise-queue DRIVER-BUFFER)]
     (a/go-loop []
       (if-let [[reply promise] (a/<! replies)]
-        (do (a/>! promise reply)
+        (do (a/put! promise reply)
             (a/close! promise)
             (recur))
         (do (a/close! promise-queue)
