@@ -15,6 +15,8 @@
   {:in (decoder/with-decoder (:in conn))
    :out (encoder/with-encoder (:out conn))})
 
+(def DRIVER-BUFFER 40)
+
 ;; a/map waits all channels even if any of them is already closed. and drops channel values.
 (defn pairs
   [ch1 ch2 & [buf-or-n]]
@@ -34,9 +36,9 @@
 
 (defn driver
   [conn options]
-  (let [promise-queue (a/chan 20)
-        requests (a/chan 20)
-        replies (pairs (:in conn) promise-queue 20)]
+  (let [promise-queue (a/chan DRIVER-BUFFER)
+        requests (a/chan DRIVER-BUFFER)
+        replies (pairs (:in conn) promise-queue DRIVER-BUFFER)]
     (a/go-loop []
       (if-let [[reply promise] (a/<! replies)]
         (do (a/>! promise reply)
@@ -67,7 +69,7 @@
      (if timeout#
        (a/alt!
          ~ch ([v#] v#)
-         (a/timeout timeout#) (ex-info "Timeout" {:type ::timeout}))
+         (a/timeout timeout#) (ex-info "Read timeout" {:type ::timeout}))
        (a/<! ~ch))))
 
 (defmacro >!-with-timeout
@@ -76,7 +78,7 @@
      (if timeout#
        (a/alt!
          [[~ch ~v]] true
-         (a/timeout timeout#) (ex-info "Timeout" {:type ::timeout}))
+         (a/timeout timeout#) (ex-info "Write timeout" {:type ::timeout}))
        (a/>! ~ch ~v))))
 
 (defn mk
@@ -114,7 +116,7 @@
           conn (a/<! (connect))]
       (if (or (nil? conn) (utils/throwable? conn))
         conn
-        (let [requests (a/chan 20)]
+        (let [requests (a/chan DRIVER-BUFFER)]
           (a/go-loop [conn conn prev-req nil]
             (if-let [v (or prev-req (a/<! requests))]
               (let [res (a/<! (send conn (:data v)))]
