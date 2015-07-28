@@ -66,7 +66,7 @@
                      [next acc]
                      (let [[current-reader' message] (current-reader bb)]
                        (case message
-                         (::none ::more-please) [(reader acc current-reader') ::none]
+                         ::none [(reader acc current-reader') ::none]
                          (let [acc' (conj acc message)]
                            (if (= size (count acc'))
                              [next acc']
@@ -90,7 +90,6 @@
   (loop [reader' reader acc []]
     (let [[reader'' message] (reader' bb)]
       (case message
-        ::more-please [reader'' acc]
         ::none (if (.isReadable bb)
                  (recur reader'' acc)
                  (do (socket/release bb) [reader'' acc]))
@@ -107,13 +106,16 @@
   (let [dst (a/chan 20)]
     (a/go-loop [reader type-reader]
       (if-let [bb (a/<! src)]
-        (let [[reader' msgs] (try
-                               (decode reader bb)
-                               (catch Exception e
-                                 (log/error e "Error while decoding")
-                                 (a/close! dst)))]
-          (doseq [m msgs]
-            (a/>! dst m))
-          (recur reader'))
+        (let [res (try
+                    (decode reader bb)
+                    (catch Exception e
+                      (log/error e "Error while decoding")
+                      ::error))]
+          (if (= ::error res)
+            (a/close! dst)
+            (let [[reader' msgs] res]
+              (doseq [m msgs]
+                (a/>! dst m))
+              (recur reader'))))
         (a/close! dst)))
     dst))
