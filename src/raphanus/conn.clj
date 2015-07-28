@@ -103,7 +103,7 @@
 
 (defn send
   [driver data & [options]]
-  (let [promise (a/chan)]
+  (let [promise (a/chan 1)]
     (a/go
       (let [res (>!-with-timeout (:requests driver) {:promise promise :data data} (:timeout driver))]
         (cond
