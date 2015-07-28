@@ -71,7 +71,7 @@
     {:requests requests
      :desc (format "TCP connect to %s:%s" (:host options) (:port options))
      :codecs (merge codec/default-codecs-dict (:codecs options))
-     :timeout 1000}))
+     :timeout (:timeout options 1000)}))
 
 (defmacro <!-with-timeout
   [ch timeout]
@@ -178,7 +178,7 @@
                            (a/go-loop [res {} [spec & hosts] hosts]
                              (if-not spec
                                res
-                               (if-let [c (a/<! (persistent (:host spec) (:port spec)))]
+                               (if-let [c (a/<! (persistent (:host spec) (:port spec) options))]
                                  (recur (assoc res (format "%s:%s" (:host spec) (:port spec)) c) hosts)
                                  (recur res hosts)))))
 
