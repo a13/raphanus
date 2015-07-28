@@ -22,15 +22,25 @@
   [ch1 ch2 & [buf-or-n]]
   (let [out (a/chan buf-or-n)]
     (a/go-loop [ch1-v nil ch2-v nil]
-      (if (and (not (nil? ch1-v)) (not (nil? ch2-v)))
+      (cond
+        (and ch1-v ch2-v)
         (do (a/>! out (vector ch1-v ch2-v))
             (recur nil nil))
+        ch1-v
+        (if-let [v (a/<! ch2)]
+          (recur ch1-v v)
+          (a/close! out))
+        ch2-v
+        (if-let [v (a/<! ch1)]
+          (recur v ch2-v)
+          (a/close! out))
+        :else
         (a/alt!
           ch1 ([v] (if v
-                     (recur v ch2-v)
+                     (recur v nil)
                      (a/close! out)))
           ch2 ([v] (if v
-                     (recur ch1-v v)
+                     (recur nil v)
                      (a/close! out))))))
     out))
 
@@ -208,7 +218,7 @@
                       (do (a/put! (:promise v) res)
                           (recur slots connections nil nil))))
                   (doseq [c (vals connections)]
-                    (a/close! {:requests c}))))
+                    (a/close! (:requests c)))))
               {:requests requests
                :desc (format "Cluster connection to %s" (pr-str hosts))
                :codecs (merge codec/default-codecs-dict (:codecs options))}))))))
