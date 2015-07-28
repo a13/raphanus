@@ -31,9 +31,9 @@
 
 (defn bulk-reader
   [next]
-  (let [buf (Unpooled/buffer 1024)]
-    (bb-as-int
-     (fn [size]
+  (bb-as-int
+   (fn [size]
+     (let [buf (Unpooled/buffer 1024)]
        (letfn [(reader [^ByteBuf bb]
                  (.writeBytes buf bb (min (- (+ size 2) (.readableBytes buf)) (.readableBytes bb)))
                  (if (= (+ size 2) (.readableBytes buf))
