@@ -18,26 +18,30 @@
 
 (comment
 
+
   (def r (send c (map #(.getBytes %) ["SET" "foooz" "barz"])))
 
   (def c (a/<!! (connection "127.0.0.1" 6379)))
 
 
-  (def c (clojure.core.async/<!! (conn/persistent "127.0.0.1" 6379)))
+  (require '[raphanus.sync :as sync])
 
-  (defn ->bytes
-    [coll]
-    (map #(.getBytes %) coll))
+  (def c (sync/cluster [{:host "10.19.0.172" :port 6379}
+                        {:host "10.19.0.135" :port 6379}
+                        {:host "10.19.0.78" :port 6379}
+                        {:host "10.19.0.184" :port 6379}
+                        {:host "10.19.0.138" :port 6379}
+                        {:host "10.19.0.157" :port 6379}]))
 
   (defn bencha
     [c]
-    (dotimes [i 1000]
-      (let [res (a/<!! (send c (->bytes ["SET" "foooz" (str "hui" ;; (rand-int 1000)
-                                                            )])))]
+    (dotimes [i 10]
+      (let [res (sync/set c (str  "test:foo" (rand-int 10)) (str "hui" (rand-int 1000)))]
         (when (not= "OK" res)
           (prn "---RES" (String. res)))
         (assert (= "OK" res)))
-      (assert (not-empty (a/<!! (send c (->bytes ["GET" "foooz"])))))))
+      (when (nil? (sync/get c (str "test:foo" (rand-int 10))))
+        (prn "---NIL"))))
 
   (defn full-bencha
     [c]
