@@ -15,7 +15,9 @@
 
 (def codec-keys
   {"GET" {:return :value}
-   "LPUSH" {:more :multiple-value}})
+   "LPUSH" {:more :multiple-value}
+   "RPUSH" {:more :multiple-value}
+   "LRANGE" {:return :multiple-value}})
 
 (defn cmd-codec-keys
   [cmd-name]

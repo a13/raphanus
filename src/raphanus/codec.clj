@@ -14,10 +14,13 @@
     (encode [this v] (.getBytes (str v)))
     (decode [this v] (String. ^bytes v))))
 
-(def multiple-string
+(defn multiple
+  [codec]
   (reify Codec
-    (encode [this v] (map (partial encode string) v))
-    (decode [this v] (map (partial decode string) v))))
+    (encode [this v] (map (partial encode codec) v))
+    (decode [this v] (map (partial decode codec) v))))
+
+(def multiple-string (multiple string))
 
 (def default-codecs-dict
   {:key string

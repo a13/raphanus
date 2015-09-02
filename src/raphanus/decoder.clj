@@ -58,8 +58,12 @@
   [next]
   (bb-as-int
    (fn [size]
-     (if (= -1 size)
+     (cond
+       (= -1 size)
        [next :raphanus/null]
+       (= 0 size)
+       [next []]
+       :else
        (letfn [(reader [acc current-reader]
                  (fn [bb]
                    (if (= size (count acc))

@@ -7,3 +7,5 @@
   (reify codec/Codec
    (encode [this v] (.getBytes (json/generate-string v)))
    (decode [this v] (json/parse-string (String. ^bytes v) keyword-fn))))
+
+(defn mk-mutliple [keyword-fn] (codec/multiple (mk keyword-fn)))
