@@ -29,6 +29,10 @@
   [next]
   (bb-as-string (fn [s] [next s])))
 
+(defn ex-assert
+  [v]
+  (when-not v (throw (Exception. "Error while decoding"))))
+
 (defn bulk-reader
   [next]
   (bb-as-int
@@ -39,8 +43,8 @@
                  (if (= (+ size 2) (.readableBytes buf))
                    (let [res (byte-array size)]
                      (.readBytes buf res)
-                     (assert (= \return (char (.readByte buf))))
-                     (assert (= \newline (char (.readByte buf))))
+                     (ex-assert (= \return (char (.readByte buf))))
+                     (ex-assert (= \newline (char (.readByte buf))))
                      (socket/release buf)
                      [next res])
                    [reader ::none]))]
