@@ -23,7 +23,7 @@
 
 (defn connect
   [host port & [options]]
-  (sync! (conn/mk host port options) options))
+  (sync! (conn/mk host port options)))
 
 (defn persistent
   [host port & [options]]
