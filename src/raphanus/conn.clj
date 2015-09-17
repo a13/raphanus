@@ -105,11 +105,10 @@
   [driver data & [options]]
   (let [promise (a/chan 1)]
     (a/go
-      (let [res (>!-with-timeout (:requests driver) {:promise promise :data data} (:timeout driver))]
-        (cond
-          (utils/throwable? res) res
-          (not (nil? res)) (<!-with-timeout promise (:timeout driver))
-          :else (ex-info "Connection closed" {:type ::connection-closed}))))))
+      (let [send-res (>!-with-timeout (:requests driver) {:promise promise :data data} (:timeout driver))]
+        (if (true? send-res)
+          (<!-with-timeout promise (:timeout driver))
+          send-res)))))
 
 (defn persistent
   [host port & [options]]
@@ -130,8 +129,11 @@
           (a/go-loop [conn conn prev-req nil]
             (if-let [v (or prev-req (a/<! requests))]
               (let [res (a/<! (send conn (:data v)))]
-                (if (= ::connection-closed (:type (ex-data res)))
-                  (recur (a/<! (infinity-connect)) v)
+                (if (or (nil? res)
+                        (= ::connection-closed (:type (ex-data res)))
+                        (= ::timeout (:type (ex-data res))))
+                  (do (a/close! (:requests conn))
+                      (recur (a/<! (infinity-connect)) v))
                   (do (a/put! (:promise v) res)
                       (recur conn nil))))
               (a/close! (:requests conn))))
