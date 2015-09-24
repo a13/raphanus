@@ -1,46 +1,40 @@
 (ns raphanus.sync
   (:require [raphanus.commands :as commands]
-            [raphanus.conn :as conn]
-            [raphanus.utils :as utils]
-            [raphanus.extra :as extra]
-            [clojure.core.async :as a])
+            [raphanus.core :as core])
+  (:import [com.lambdaworks.redis.api StatefulRedisConnection]
+           [com.lambdaworks.redis.api.sync RedisStringCommands RedisListCommands RedisScriptingCommands
+            RedisServerCommands]
+           [com.lambdaworks.redis.cluster.api.sync RedisAdvancedClusterCommands
+            NodeSelectionStringCommands NodeSelectionScriptingCommands NodeSelectionServerCommands])
   (:refer-clojure :exclude [time sort sync set keys eval get type]))
 
-(defn sync!
-  [ch]
-  (let [v (a/<!! ch)]
-    (if (utils/throwable? v)
-      (throw v)
-      v)))
+(defn sync*
+  [component]
+  (let [conn (:conn component)]
+    (.sync conn)))
 
-(defn sync-send
-  [driver data]
-  (sync! (conn/send driver data)))
+(commands/defcommands [RedisListCommands RedisStringCommands RedisScriptingCommands
+                       RedisServerCommands
+                       ['cluster- RedisAdvancedClusterCommands]]
+  {:get-api `sync*})
 
-(defn enqueue
-  [driver data return-f]
-  (return-f (sync-send driver data)))
+(commands/defcommands [['node- NodeSelectionStringCommands]
+                       ['node- NodeSelectionScriptingCommands]]
+  {:get-api `identity})
 
-(defn connect
-  [host port & [options]]
-  (sync! (conn/mk host port options)))
-
-(defn persistent
-  [host port & [options]]
-  (sync! (conn/persistent host port options)))
-
-(defn cluster
-  [hosts & [options]]
-  (sync! (conn/cluster hosts options)))
-
-(commands/defcommands enqueue)
-
-(defmacro with-lock
-  [driver key options & body]
-  `(sync! (extra/with-lock ~driver ~key ~options ~@body)))
+;; (defmacro with-lock
+;;   [driver key options & body]
+;;   `(sync! (extra/with-lock ~driver ~key ~options ~@body)))
 
 (comment
-  (def c (clojure.core.async/<!! (raphanus.conn/persistent "127.0.0.1" 6379)))
+  (require 'defcomponent)
+  (def s (defcomponent/system [raphanus.core/client] {:start true :params [{:host "localhost" :port 6379}]}))
+  (def c (clojure.core/get s raphanus.core/client))
+  (def s2 (defcomponent/system [raphanus.core/cluster] {:start true :params [[{:host "localhost" :port 30001}]]}))
+  (def c2 (clojure.core/get s2 raphanus.core/cluster))
 
-  (def c (clojure.core.async/<!! (raphanus.conn/cluster [{:host "127.0.0.1" :port 30001}])))
-  )
+  (raphanus.lua/lua c "return 1" :integer [] [])
+
+  (def sel (cluster-nodes c2 (core/->predicate (constantly true)))))
+
+

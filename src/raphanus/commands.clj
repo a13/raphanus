@@ -3,128 +3,61 @@
             [clojure.string :as str]
             [clojure.edn :as edn]
             [clojure.tools.logging :as log]
-            [raphanus.codec :as codec]
-            [raphanus.tracer :as tracer]))
+            [clojure.reflect :as r])
+  (:import [com.lambdaworks.redis SetArgs]))
 
-(def default-codec-keys
-  {'key :key
-   'value :value
-   :more :multiple-key
-   :default :default
-   :return :return})
+(defn arguments-list
+  [method]
+  (for [i (range (count (:parameter-types method)))]
+    (symbol (str "arg" (inc i)))))
 
-(def codec-keys
-  {"GET" {:return :value}
-   "LPUSH" {:more :multiple-value}
-   "RPUSH" {:more :multiple-value}
-   "LRANGE" {:return :multiple-value}})
+(defn set-args
+  [m]
+  (-> (SetArgs.)
+      (cond->
+          (:ex m) (.ex (:ex m))
+          (:nx m) (.nx)
+          (:px m) (.px (:px m))
+          (:xx m) (.xx))))
 
-(defn cmd-codec-keys
-  [cmd-name]
-  (merge default-codec-keys (codec-keys cmd-name)))
+(def custom-appliers
+  {'com.lambdaworks.redis.SetArgs `set-args})
 
-(defn- args-transformer
-  [codecs cmd-name fn-args]
-  (let [cmd-parts (vec (str/split cmd-name #" ")) ; ["CONFIG" "SET"]
-        codec-keys' (cmd-codec-keys cmd-name)
-        [args-main [_ & args-more]] (split-with #(not= '& %) fn-args)
-        args (if args-more `(concat ~(vec args-main) ~'args) (vec args-main))]
-    `(let ~(-> (for [a args-main
-                     :let [codec-key (codec-keys' a (codec-keys' :default))]] 
-                 [a `(codec/encode (~codec-key ~codecs) ~a)])
-               (cond->
-                   args-more (conj ['args `(codec/encode (~(codec-keys' :more) ~codecs) ~'args)]))
-               (->>
-                (apply concat)
-                (vec)))
-       (into (mapv #(.getBytes ^String %) ~cmd-parts) ~args))))
+(defn apply-arguments-list
+  [method]
+  (for [[i t] (map-indexed vector (:parameter-types method))]
+    (let [s (symbol (str "arg" (inc i)))]
+      (if-let [custom (custom-appliers t)]
+        (list custom s)
+        s))))
 
-(defn- args->params-vec
-  "Parses refspec argument map into simple defn-style parameter vector:
-  '[key value & more], etc."
-  [args]
-  (let [num-non-optional (count (take-while #(not (:optional %)) args))
-        num-non-multiple (count (take-while #(not (:multiple %)) args))
+(defn defcommand
+  [n methods {:keys [get-api result-f] :or {result-f 'identity}}]
+  `(defn ~n
+     ~@(for [method methods]
+         `([client# ~@(arguments-list method)]
+           (~result-f (. (~get-api client#) ~(:name method) ~@(apply-arguments-list method)))))))
 
-        ;; Stop explicit naming on the 1st optional arg (exclusive) or 1st
-        ;; multiple arg (inclusive)
-        num-fixed        (min num-non-optional (inc num-non-multiple))
+(defn defcommands-body
+  [interfaces params]
+  (let [members (for [i interfaces
+                      :let [[prefix i'] (if (vector? i) i [nil i])
+                            reflection (r/type-reflect i')
+                            members (:members reflection)]
+                      m members
+                      :when (and ((:flags m) :public) ((:flags m) :abstract))]
+                  (assoc m ::name (symbol (str prefix (:name m)))))
+        methods (group-by ::name members)]
+    (map (fn [[k v]]
+           (let [methods' (group-by #(count (:parameter-types %)) v)]
+             ;; only one method from each arity
+             (defcommand k (map first (vals methods')) params))) methods)))
 
-        fixed-args       (->> args (take num-fixed)
-                              (map :name) flatten (map symbol) vec)
-        has-more? (seq (filter #(or (:optional %) (:multiple %)) args))]
-    (if has-more? (conj fixed-args '& 'args) fixed-args)))
+(defmacro defcommands*
+  [interfaces]
+  `(do ~@(defcommands-body interfaces)))
 
-(defn- args->params-docstring
-  "Parses refspec argument map into Redis reference-doc-style explanatory
-  string: \"BRPOP key [key ...] timeout\", etc."
-  [args]
-  (let [parse
-        #(let [{:keys [command type name enum multiple optional]} %
-               name (if (and (coll? name) (not (next name))) (first name) name)
-               s (cond command (str command " "
-                                    (cond enum         (str/join "|" enum)
-                                          (coll? name) (str/join " " name)
-                                          :else name))
-                       enum (str/join "|" enum)
-                       :else name)
-               s (if multiple (str s " [" s " ...]") s)
-               s (if optional (str "[" s "]") s)]
-           s)]
-    (str/join " " (map parse args))))
-
-(defn result-f
-  [driver cmd-name return-key args]
-  (let [start (System/nanoTime)
-        return-codec ((:codecs driver) return-key)]
-    (fn [res]
-      (when-let [tracer (:tracer driver)]
-        (tracer/request-completed tracer cmd-name args res (- (System/nanoTime) start)))
-      (when-not (= :raphanus/null res)
-        (codec/decode return-codec res)))))
-
-(defmacro defcommand [enqueue-f {cmd-name :name args :arguments :as refspec}]
-  (let [fn-name      (-> cmd-name (str/replace #" " "-") str/lower-case)
-        fn-docstring (str cmd-name " "
-                          (args->params-docstring args)
-                          "\n\n" (:summary refspec) ".\n\n"
-                          "Available since: " (:since refspec) ".\n\n"
-                          "Time complexity: " (:complexity refspec))
-
-        fn-args (args->params-vec args)  ; ['key 'value '& 'more]
-        all-args (-> (concat ['driver] fn-args)
-                     vec)
-        codecs-sym (gensym "codecs")
-        req-args (args-transformer codecs-sym cmd-name fn-args)]
-
-    `(defn ~(symbol fn-name)
-       {:doc ~fn-docstring
-        :redis-api (or (:since ~refspec) true)}
-       ~all-args
-       (let [~codecs-sym (get ~'driver :codecs)
-             request# ~req-args]
-         (~enqueue-f ~'driver request# (result-f ~'driver ~cmd-name ~(:return (cmd-codec-keys cmd-name))
-                                                 ~(vec (filter #(not= '& %) fn-args))))))))
-
-
-(defn command-specs
-  []
-  (-> (io/resource "raphanus/commands.edn")
-      slurp
-      edn/read-string))
-
-(defmacro defcommands [enqueue-f]
-  (let [refspec (command-specs)]
-    `(do ~@(map (fn [v] `(defcommand ~enqueue-f ~v))
-                refspec))))
-
-(comment
-  (require 'cheshire.core)
-  (-> (slurp "resources/raphanus/commands.json")
-      (cheshire.core/parse-string true)
-      (->> (mapv (fn [[k v]] (assoc v :name (name k))))
-           (spit "resources/raphanus/commands.edn")))
-
-  (defcommand identity {:name "APPEND", :summary "Append a value to a key", :complexity "O(1). The amortized time complexity is O(1) assuming the appended value is small and the already present value is of any size, since the dynamic string library used by Redis will double the free space available on every reallocation.", :arguments [{:name "key", :type "key"} {:name "value", :type "string"}], :since "2.0.0", :group "string"})
-  (defcommand identity {:name "SET", :summary "Set the string value of a key", :complexity "O(1)", :arguments [{:name "key", :type "key"} {:name "value", :type "string"} {:command "EX", :name "seconds", :type "integer", :optional true} {:command "PX", :name "milliseconds", :type "integer", :optional true} {:name "condition", :type "enum", :enum ["NX" "XX"], :optional true}], :since "1.0.0", :group "string"})
-  )
+(defn defcommands
+  [interfaces params]
+  (let [body (defcommands-body interfaces params)]
+    (clojure.core/eval (cons `do body))))
