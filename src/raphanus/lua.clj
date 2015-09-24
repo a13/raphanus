@@ -59,7 +59,7 @@
   (lua
     ([client script return-value keys args] (lua client script return-value keys args (sha1 script)))
     ([client script return-value keys args sha]
-     (let [slot (SlotHash/getSlot sha)
+     (let [slot (SlotHash/getSlot (or (first keys) sha))
            node (sync/cluster-nodes client (core/->predicate #(.hasSlot % slot)))]
        (let [res (try
                    (-> (sync/node-evalsha node sha (RETURN-VALUES return-value)
