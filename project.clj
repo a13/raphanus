@@ -1,4 +1,4 @@
-(defproject raphanus "0.1.16-SNAPSHOT"
+(defproject raphanus "0.1.16"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
