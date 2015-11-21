@@ -31,7 +31,7 @@
 
 (defn noscript?
   [e]
-  (and (instance? Exception e) (re-find #"^NOSCRIPT\s" (.getMessage e))))
+  (and (instance? Exception e) (re-find #"^NOSCRIPT\s" (-> e .getCause .getMessage))))
 
 
 (defn selection-first-value
