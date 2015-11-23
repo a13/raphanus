@@ -30,9 +30,17 @@
                     :multi ScriptOutputType/MULTI})
 
 (defn noscript?
+<<<<<<< HEAD
   [e]
   (and (instance? Exception e) (re-find #"^NOSCRIPT\s" (-> e .getCause .getMessage))))
 
+=======
+  [return-value res]
+  (let [v (case return-value
+            :multi (first res)
+            res)]
+    (and (instance? Exception v) (re-find #"^NOSCRIPT\s" (.getMessage v)))))
+>>>>>>> lua noscript handling
 
 (defn selection-first-value
   [execution]
@@ -50,7 +58,7 @@
      (let [res (try
                  (sync/evalsha client sha (RETURN-VALUES return-value) (prepare-args keys) (prepare-args args))
                  (catch RedisCommandExecutionException e e))]
-       (if (noscript? res)
+       (if (noscript? return-value res)
          (do (sync/scriptLoad client script)
              (sync/evalsha client sha (RETURN-VALUES return-value)
                            (prepare-args keys) (prepare-args args)))
@@ -61,17 +69,15 @@
     ([client script return-value keys args sha]
      (let [slot (SlotHash/getSlot (or (first keys) sha))
            node (sync/cluster-nodes client (core/->predicate #(.hasSlot % slot)))]
-       (let [res (try
-                   (-> (sync/node-evalsha node sha (RETURN-VALUES return-value)
-                                          (prepare-args keys) (prepare-args args))
-                       (selection-first-value))
-                   (catch RedisCommandExecutionException e e))]
-         (if (instance? Exception res)
+       (let [res (-> (sync/node-evalsha node sha (RETURN-VALUES return-value)
+                                        (prepare-args keys) (prepare-args args))
+                     (selection-first-value))]
+         (if (noscript? return-value res)
            (do
              (sync/node-scriptLoad node script)
              (-> (sync/node-evalsha node sha (RETURN-VALUES return-value)
                                     (prepare-args keys) (prepare-args args))
-                   (selection-first-value)))
+                 (selection-first-value)))
            res))))))
 
 (defmacro defscript [script-name script-body return-value]
