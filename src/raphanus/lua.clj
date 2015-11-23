@@ -30,17 +30,11 @@
                     :multi ScriptOutputType/MULTI})
 
 (defn noscript?
-<<<<<<< HEAD
-  [e]
-  (and (instance? Exception e) (re-find #"^NOSCRIPT\s" (-> e .getCause .getMessage))))
-
-=======
   [return-value res]
   (let [v (case return-value
             :multi (first res)
             res)]
     (and (instance? Exception v) (re-find #"^NOSCRIPT\s" (.getMessage v)))))
->>>>>>> lua noscript handling
 
 (defn selection-first-value
   [execution]
