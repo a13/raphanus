@@ -3,7 +3,7 @@
             [raphanus.core :as core])
   (:import [com.lambdaworks.redis.api StatefulRedisConnection]
            [com.lambdaworks.redis.api.sync RedisStringCommands RedisListCommands RedisScriptingCommands
-            RedisServerCommands RedisKeyCommands]
+            RedisServerCommands RedisKeyCommands RedisSetCommands]
            [com.lambdaworks.redis.cluster.api.sync RedisAdvancedClusterCommands
             NodeSelectionStringCommands NodeSelectionScriptingCommands NodeSelectionServerCommands])
   (:refer-clojure :exclude [time sort sync set keys eval get type]))
@@ -14,7 +14,7 @@
     (.sync conn)))
 
 (commands/defcommands [RedisListCommands RedisStringCommands RedisScriptingCommands
-                       RedisServerCommands RedisKeyCommands
+                       RedisServerCommands RedisKeyCommands RedisSetCommands
                        ['cluster- RedisAdvancedClusterCommands]]
   {:get-api `sync*})
 
